@@ -12,4 +12,6 @@ $ deptree < input
 wrote graph.svg
 ```
 
+generated tree
+
 ![graph.svg](images/graph.svg)
