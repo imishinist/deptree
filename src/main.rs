@@ -38,6 +38,7 @@ fn main() {
     let (filename, mut dot_file) = fileutil::create_temp_file().expect("failed to create dot file");
     dot::write(&nodes, &edges, &mut dot_file).expect("failed to write dot file");
     dot::compile(&args.output, &filename);
+    println!("wrote {}", args.output);
 }
 
 #[derive(Debug)]
