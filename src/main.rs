@@ -228,10 +228,10 @@ mod dot {
         graph_config.write(file)?;
 
         for node in nodes {
-            writeln!(file, "    {};", node)?;
+            writeln!(file, "    \"{}\";", node)?;
         }
         for edge in edges {
-            writeln!(file, "    {} -> {};", edge.from, edge.to)?;
+            writeln!(file, "    \"{}\" -> \"{}\";", edge.from, edge.to)?;
         }
         writeln!(file, "}}")?;
         Ok(())
