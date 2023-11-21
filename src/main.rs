@@ -57,6 +57,7 @@ struct Args {
 }
 
 fn main() {
+    env_logger::init();
     let args = Args::parse();
 
     let inputs = read_input().expect("failed to read input");
@@ -82,6 +83,8 @@ fn main() {
     graph_config.graph.layout = args.layout.to_string();
 
     let (filename, mut dot_file) = fileutil::create_temp_file().expect("failed to create dot file");
+    log::debug!("writing dot file to {}", filename.as_os_str().to_string_lossy());
+
     dot::write(&graph_config, &nodes, &edges, &mut dot_file)
         .expect("failed to write dot file");
     dot::compile(&args.output, &filename);
