@@ -2,6 +2,41 @@ use clap::Parser;
 use std::collections::HashSet;
 use std::io::{self, BufRead};
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum Layout {
+    Dot,
+    Neato,
+    Fdp,
+    Sfdp,
+    Circo,
+    Twopi,
+    Nop,
+    Nop2,
+    Osage,
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Layout::Dot
+    }
+}
+
+impl ToString for Layout {
+    fn to_string(&self) -> String {
+        match self {
+            Layout::Dot => "dot",
+            Layout::Neato => "neato",
+            Layout::Fdp => "fdp",
+            Layout::Sfdp => "sfdp",
+            Layout::Circo => "circo",
+            Layout::Twopi => "twopi",
+            Layout::Nop => "nop",
+            Layout::Nop2 => "nop2",
+            Layout::Osage => "osage",
+        }.to_string()
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -17,9 +52,8 @@ struct Args {
     #[clap(default_value = "G")]
     graph_name: String,
 
-    #[arg(short, long)]
-    #[clap(default_value = "dot")]
-    layout: String,
+    #[arg(short, long, value_enum, default_value_t = Layout::default())]
+    layout: Layout,
 }
 
 fn main() {
@@ -45,7 +79,7 @@ fn main() {
 
     let mut graph_config = graphviz::Config::default();
     graph_config.name = args.graph_name;
-    graph_config.graph.layout = args.layout;
+    graph_config.graph.layout = args.layout.to_string();
 
     let (filename, mut dot_file) = fileutil::create_temp_file().expect("failed to create dot file");
     dot::write(&graph_config, &nodes, &edges, &mut dot_file)
