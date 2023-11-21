@@ -14,6 +14,10 @@ struct Args {
     output: String,
 
     #[arg(short, long)]
+    #[clap(default_value = "G")]
+    graph_name: String,
+
+    #[arg(short, long)]
     #[clap(default_value = "dot")]
     layout: String,
 }
@@ -39,13 +43,12 @@ fn main() {
         }
     }
 
-    let mut graph_config = graphviz::GraphConfig::default();
-    let node_config = graphviz::NodeConfig::default();
-
-    graph_config.layout = args.layout;
+    let mut graph_config = graphviz::Config::default();
+    graph_config.name = args.graph_name;
+    graph_config.graph.layout = args.layout;
 
     let (filename, mut dot_file) = fileutil::create_temp_file().expect("failed to create dot file");
-    dot::write(&graph_config, &node_config, &nodes, &edges, &mut dot_file)
+    dot::write(&graph_config, &nodes, &edges, &mut dot_file)
         .expect("failed to write dot file");
     dot::compile(&args.output, &filename);
     println!("wrote {}", args.output);
@@ -53,6 +56,34 @@ fn main() {
 
 mod graphviz {
     use std::io::{self, Write};
+
+    pub struct Config {
+        pub name: String,
+
+        pub graph: GraphConfig,
+        pub node: NodeConfig,
+        pub edge: EdgeConfig,
+    }
+
+    impl Default for Config {
+        fn default() -> Self {
+            Config {
+                name: "G".to_string(),
+                graph: GraphConfig::default(),
+                node: NodeConfig::default(),
+                edge: EdgeConfig::default(),
+            }
+        }
+    }
+
+    impl Config {
+        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
+            self.graph.write(file)?;
+            self.node.write(file)?;
+            self.edge.write(file)?;
+            Ok(())
+        }
+    }
 
     pub struct GraphConfig {
         pub charset: String,
@@ -100,6 +131,28 @@ mod graphviz {
             Ok(())
         }
     }
+
+    pub struct EdgeConfig {
+        pub arrowhead: String,
+    }
+
+    impl Default for EdgeConfig {
+        fn default() -> Self {
+            EdgeConfig {
+                arrowhead: "normal".to_string(),
+            }
+        }
+    }
+
+    impl EdgeConfig {
+        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
+            let indent = "  ";
+            writeln!(file, "{}edge [", indent)?;
+            writeln!(file, "{}{}arrowhead=\"{}\";", indent, indent, self.arrowhead)?;
+            writeln!(file, "{}]", indent)?;
+            Ok(())
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -125,22 +178,20 @@ fn read_input() -> io::Result<Vec<String>> {
 }
 
 mod dot {
-    use crate::graphviz::{GraphConfig, NodeConfig};
+    use crate::graphviz::{self};
     use crate::{fileutil, Edge};
     use std::collections::HashSet;
     use std::fs::File;
     use std::io::{self, Write};
 
     pub fn write(
-        graph_config: &GraphConfig,
-        node_config: &NodeConfig,
+        graph_config: &graphviz::Config,
         nodes: &HashSet<String>,
         edges: &Vec<Edge>,
         file: &mut File,
     ) -> io::Result<()> {
-        writeln!(file, "digraph G {{")?;
+        writeln!(file, "digraph {} {{", graph_config.name)?;
         graph_config.write(file)?;
-        node_config.write(file)?;
 
         for node in nodes {
             writeln!(file, "    {};", node)?;
