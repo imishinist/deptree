@@ -52,6 +52,10 @@ struct Args {
     #[clap(default_value = "G")]
     graph_name: String,
 
+    #[arg(short, long)]
+    #[clap(default_value_t = false)]
+    reverse: bool,
+
     #[arg(short, long, value_enum, default_value_t = Layout::default())]
     layout: Layout,
 }
@@ -66,7 +70,12 @@ fn main() {
     let mut edges = Vec::new();
     for (idx, input) in inputs.iter().enumerate() {
         match parse_line(&input, &args.delimiter) {
-            Some(edge) => {
+            Some(mut edge) => {
+                if args.reverse {
+                    let tmp = edge.from.clone();
+                    edge.from = edge.to.clone();
+                    edge.to = tmp;
+                }
                 nodes.insert(edge.from.clone());
                 nodes.insert(edge.to.clone());
                 edges.push(edge);
