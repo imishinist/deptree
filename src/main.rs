@@ -1,6 +1,8 @@
-use clap::Parser;
 use std::collections::HashSet;
+use std::error;
 use std::io::{self, BufRead};
+
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum Layout {
@@ -33,13 +35,26 @@ impl ToString for Layout {
             Layout::Nop => "nop",
             Layout::Nop2 => "nop2",
             Layout::Osage => "osage",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+#[command(propagate_version = true)]
+struct DepTreeCommands {
+    #[command(subcommand)]
+    commands: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Graph(GraphCommand),
+}
+
+#[derive(Args, Debug)]
+struct GraphCommand {
     #[arg(short, long)]
     #[clap(default_value = ":")]
     delimiter: String,
@@ -60,44 +75,57 @@ struct Args {
     layout: Layout,
 }
 
-fn main() {
-    env_logger::init();
-    let args = Args::parse();
+impl GraphCommand {
+    fn run(&self) -> anyhow::Result<()> {
+        let inputs = read_input().expect("failed to read input");
 
-    let inputs = read_input().expect("failed to read input");
-
-    let mut nodes = HashSet::new();
-    let mut edges = Vec::new();
-    for (idx, input) in inputs.iter().enumerate() {
-        match parse_line(&input, &args.delimiter) {
-            Some(mut edge) => {
-                if args.reverse {
-                    let tmp = edge.from.clone();
-                    edge.from = edge.to.clone();
-                    edge.to = tmp;
+        let mut nodes = HashSet::new();
+        let mut edges = Vec::new();
+        for (idx, input) in inputs.iter().enumerate() {
+            match parse_line(&input, &self.delimiter) {
+                Some(mut edge) => {
+                    if self.reverse {
+                        let tmp = edge.from.clone();
+                        edge.from = edge.to.clone();
+                        edge.to = tmp;
+                    }
+                    nodes.insert(edge.from.clone());
+                    nodes.insert(edge.to.clone());
+                    edges.push(edge);
                 }
-                nodes.insert(edge.from.clone());
-                nodes.insert(edge.to.clone());
-                edges.push(edge);
-            }
-            None => {
-                eprintln!("error parsing line {}: \"{}\"", idx + 1, input);
-                std::process::exit(1);
+                None => {
+                    eprintln!("error parsing line {}: \"{}\"", idx + 1, input);
+                    std::process::exit(1);
+                }
             }
         }
+
+        let mut graph_config = graphviz::Config::default();
+        graph_config.name = self.graph_name.clone();
+        graph_config.graph.layout = self.layout.to_string();
+
+        let (filename, mut dot_file) =
+            fileutil::create_temp_file().expect("failed to create dot file");
+        log::debug!(
+            "writing dot file to {}",
+            filename.as_os_str().to_string_lossy()
+        );
+
+        dot::write(&graph_config, &nodes, &edges, &mut dot_file).expect("failed to write dot file");
+        dot::compile(&self.output, &filename);
+        println!("wrote {}", self.output);
+        Ok(())
     }
+}
 
-    let mut graph_config = graphviz::Config::default();
-    graph_config.name = args.graph_name;
-    graph_config.graph.layout = args.layout.to_string();
+fn main() -> Result<(), Box<dyn error::Error>> {
+    env_logger::init();
 
-    let (filename, mut dot_file) = fileutil::create_temp_file().expect("failed to create dot file");
-    log::debug!("writing dot file to {}", filename.as_os_str().to_string_lossy());
-
-    dot::write(&graph_config, &nodes, &edges, &mut dot_file)
-        .expect("failed to write dot file");
-    dot::compile(&args.output, &filename);
-    println!("wrote {}", args.output);
+    let deptree = DepTreeCommands::parse();
+    match deptree.commands {
+        Commands::Graph(graph) => graph.run()?,
+    }
+    Ok(())
 }
 
 mod graphviz {
@@ -194,7 +222,11 @@ mod graphviz {
         pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
             let indent = "  ";
             writeln!(file, "{}edge [", indent)?;
-            writeln!(file, "{}{}arrowhead=\"{}\";", indent, indent, self.arrowhead)?;
+            writeln!(
+                file,
+                "{}{}arrowhead=\"{}\";",
+                indent, indent, self.arrowhead
+            )?;
             writeln!(file, "{}]", indent)?;
             Ok(())
         }
