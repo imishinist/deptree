@@ -4,8 +4,9 @@ use std::io::{self, BufRead};
 
 use clap::{Args, Parser, Subcommand};
 
-#[derive(Debug, Clone, clap::ValueEnum)]
+#[derive(Debug, Clone, clap::ValueEnum, Default)]
 enum Layout {
+    #[default]
     Dot,
     Neato,
     Fdp,
@@ -15,12 +16,6 @@ enum Layout {
     Nop,
     Nop2,
     Osage,
-}
-
-impl Default for Layout {
-    fn default() -> Self {
-        Layout::Dot
-    }
 }
 
 impl ToString for Layout {
@@ -82,7 +77,7 @@ impl GraphCommand {
         let mut nodes = HashSet::new();
         let mut edges = Vec::new();
         for (idx, input) in inputs.iter().enumerate() {
-            match parse_line(&input, &self.delimiter) {
+            match parse_line(input, &self.delimiter) {
                 Some(mut edge) => {
                     if self.reverse {
                         let tmp = edge.from.clone();
@@ -100,8 +95,10 @@ impl GraphCommand {
             }
         }
 
-        let mut graph_config = graphviz::Config::default();
-        graph_config.name = self.graph_name.clone();
+        let mut graph_config = graphviz::Config {
+            name: self.graph_name.clone(),
+            ..Default::default()
+        };
         graph_config.graph.layout = self.layout.to_string();
 
         let (filename, mut dot_file) =
