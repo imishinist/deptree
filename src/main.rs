@@ -36,6 +36,35 @@ impl ToString for Layout {
     }
 }
 
+#[derive(Debug, Clone, clap::ValueEnum, Default)]
+enum Shape {
+    #[default]
+    Box,
+    Ellipse,
+    Oval,
+    Circle,
+    Point,
+    Triangle,
+    Diamond,
+    Record,
+}
+
+impl ToString for Shape {
+    fn to_string(&self) -> String {
+        match self {
+            Shape::Box => "box",
+            Shape::Ellipse => "ellipse",
+            Shape::Oval => "oval",
+            Shape::Circle => "circle",
+            Shape::Point => "point",
+            Shape::Triangle => "triangle",
+            Shape::Diamond => "diamond",
+            Shape::Record => "record",
+        }
+        .to_string()
+    }
+}
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -69,6 +98,9 @@ struct GraphCommand {
 
     #[arg(short, long, value_enum, default_value_t = Layout::default())]
     layout: Layout,
+
+    #[arg(short, long, value_enum, default_value_t = Shape::default())]
+    node_shape: Shape,
 }
 
 impl GraphCommand {
@@ -90,6 +122,7 @@ impl GraphCommand {
             ..Default::default()
         };
         graph_config.graph.layout = self.layout.to_string();
+        graph_config.node.shape = self.node_shape.to_string();
 
         let (filename, mut dot_file) =
             fileutil::create_temp_file().context("failed to create temp file")?;
