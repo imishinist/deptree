@@ -15,10 +15,18 @@ pub fn write(
     graph_config.write(file)?;
 
     for node in graph.node_arena.nodes.iter().enumerate() {
-        writeln!(file, "    N_{} [label=\"{}\"];", node.0, node.1)?;
+        writeln!(file, "  N_{} [label=\"{}\"];", node.0, node.1)?;
     }
     for edge in graph.edges.iter() {
-        writeln!(file, "    N_{} -> N_{};", edge.from, edge.to)?;
+        if let Some(label) = &edge.label {
+            writeln!(
+                file,
+                "  N_{} -> N_{} [label=\"{}\"];",
+                edge.from, edge.to, label
+            )?;
+        } else {
+            writeln!(file, "  N_{} -> N_{};", edge.from, edge.to)?;
+        }
     }
     writeln!(file, "}}")?;
     Ok(())
@@ -27,6 +35,12 @@ pub fn write(
 pub fn compile(output_file: &str, filename: &std::path::Path) -> anyhow::Result<()> {
     let extension = fileutil::get_extension(output_file).unwrap_or(DEFAULT_OUTPUT_FORMAT);
     // dot -T${extension} -o ${args.output} ${filename}
+    log::debug!(
+        "dot -T{} -o {} {}",
+        extension,
+        output_file,
+        filename.as_os_str().to_string_lossy()
+    );
     let output = std::process::Command::new("dot")
         .arg(format!("-T{}", extension))
         .arg("-o")

@@ -8,6 +8,7 @@ pub mod graphviz;
 pub struct Edge {
     pub from: NodeId,
     pub to: NodeId,
+    pub label: Option<String>,
 }
 
 pub type NodeId = usize;
@@ -31,12 +32,13 @@ impl Graph {
         }
     }
 
-    pub fn add_edge(&mut self, from: &str, to: &str) {
+    pub fn add_edge(&mut self, from: &str, to: &str, label: Option<&str>) {
         let from_id = self.node_arena.insert(from.to_string());
         let to_id = self.node_arena.insert(to.to_string());
         self.edges.push(Edge {
             from: from_id,
             to: to_id,
+            label: label.map(|s| s.to_string()),
         });
     }
 }

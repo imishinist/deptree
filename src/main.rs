@@ -80,9 +80,13 @@ enum Commands {
 
 #[derive(Args, Debug)]
 struct GraphCommand {
-    #[arg(short, long)]
+    #[arg(long)]
+    #[clap(default_value = "->")]
+    edge_delimiter: String,
+
+    #[arg(long)]
     #[clap(default_value = ":")]
-    delimiter: String,
+    label_delimiter: String,
 
     #[arg(short, long)]
     #[clap(default_value = "graph.svg")]
@@ -109,12 +113,13 @@ impl GraphCommand {
 
         let mut graph = Graph::new();
         for (idx, input) in inputs.iter().enumerate() {
-            let (mut from, mut to) = parse_line(input, &self.delimiter)
-                .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
+            let (mut from, mut to, label) =
+                parse_line(input, &self.edge_delimiter, &self.label_delimiter)
+                    .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
             if self.reverse {
                 mem::swap(&mut from, &mut to);
             }
-            graph.add_edge(from, to);
+            graph.add_edge(from, to, label);
         }
 
         let mut graph_config = graphviz::Config {
@@ -149,9 +154,20 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn parse_line<'a>(line: &'a str, delim: &str) -> Option<(&'a str, &'a str)> {
-    let mut split = line.split(delim);
-    Some((split.next()?, split.next()?))
+fn parse_line<'a>(
+    line: &'a str,
+    edge_delim: &str,
+    label_delim: &str,
+) -> Option<(&'a str, &'a str, Option<&'a str>)> {
+    // parse line
+    // a->b:foo
+
+    let mut split = line.split(label_delim);
+    let edge = split.next()?;
+    let label = split.next();
+
+    let mut split = edge.split(edge_delim);
+    Some((split.next()?, split.next()?, label))
 }
 
 fn read_input() -> io::Result<Vec<String>> {
