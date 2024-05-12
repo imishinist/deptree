@@ -1,6 +1,7 @@
+use anyhow::Context;
 use std::collections::HashSet;
-use std::error;
 use std::io::{self, BufRead};
+use std::{error, mem};
 
 use clap::{Args, Parser, Subcommand};
 use deptree::{dot, fileutil, graphviz, Edge};
@@ -73,27 +74,19 @@ struct GraphCommand {
 
 impl GraphCommand {
     fn run(&self) -> anyhow::Result<()> {
-        let inputs = read_input().expect("failed to read input");
+        let inputs = read_input().context("failed to read input")?;
 
         let mut nodes = HashSet::new();
         let mut edges = Vec::new();
         for (idx, input) in inputs.iter().enumerate() {
-            match parse_line(input, &self.delimiter) {
-                Some(mut edge) => {
-                    if self.reverse {
-                        let tmp = edge.from.clone();
-                        edge.from = edge.to.clone();
-                        edge.to = tmp;
-                    }
-                    nodes.insert(edge.from.clone());
-                    nodes.insert(edge.to.clone());
-                    edges.push(edge);
-                }
-                None => {
-                    eprintln!("error parsing line {}: \"{}\"", idx + 1, input);
-                    std::process::exit(1);
-                }
+            let mut edge = parse_line(input, &self.delimiter)
+                .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
+            if self.reverse {
+                mem::swap(&mut edge.from, &mut edge.to);
             }
+            nodes.insert(edge.from.clone());
+            nodes.insert(edge.to.clone());
+            edges.push(edge);
         }
 
         let mut graph_config = graphviz::Config {
@@ -103,14 +96,15 @@ impl GraphCommand {
         graph_config.graph.layout = self.layout.to_string();
 
         let (filename, mut dot_file) =
-            fileutil::create_temp_file().expect("failed to create dot file");
+            fileutil::create_temp_file().context("failed to create temp file")?;
         log::debug!(
             "writing dot file to {}",
             filename.as_os_str().to_string_lossy()
         );
 
-        dot::write(&graph_config, &nodes, &edges, &mut dot_file).expect("failed to write dot file");
-        dot::compile(&self.output, &filename);
+        dot::write(&graph_config, &nodes, &edges, &mut dot_file)
+            .context("failed to write temporary dot file")?;
+        dot::compile(&self.output, &filename).context("failed to compile temporary dot file")?;
         println!("wrote {}", self.output);
         Ok(())
     }

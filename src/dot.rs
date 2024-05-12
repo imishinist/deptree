@@ -5,6 +5,8 @@ use std::io::{self, Write};
 use crate::graphviz;
 use crate::{fileutil, Edge};
 
+const DEFAULT_OUTPUT_FORMAT: &str = "svg";
+
 pub fn write(
     graph_config: &graphviz::Config,
     nodes: &HashSet<String>,
@@ -24,17 +26,20 @@ pub fn write(
     Ok(())
 }
 
-pub fn compile(output_file: &str, filename: &std::path::Path) {
-    // dot -Tsvg -o ${args.output} ${filename}
+pub fn compile(output_file: &str, filename: &std::path::Path) -> anyhow::Result<()> {
+    let extension = fileutil::get_extension(output_file).unwrap_or(DEFAULT_OUTPUT_FORMAT);
+    // dot -T${extension} -o ${args.output} ${filename}
     let output = std::process::Command::new("dot")
-        .arg(format!("-T{}", fileutil::get_extension(output_file)))
+        .arg(format!("-T{}", extension))
         .arg("-o")
         .arg(output_file)
         .arg(filename.as_os_str())
-        .output()
-        .expect("failed to execute dot");
+        .output()?;
     if !output.status.success() {
-        eprintln!("dot failed: {}", String::from_utf8_lossy(&output.stderr));
-        std::process::exit(1);
+        return Err(anyhow::anyhow!(
+            "dot failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
+    Ok(())
 }
