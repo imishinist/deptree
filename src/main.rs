@@ -1,7 +1,7 @@
-use anyhow::Context;
 use std::io::{self, BufRead};
 use std::{error, mem};
 
+use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
 use deptree::{dot, fileutil, graphviz, Graph};
 
