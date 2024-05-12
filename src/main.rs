@@ -3,6 +3,7 @@ use std::error;
 use std::io::{self, BufRead};
 
 use clap::{Args, Parser, Subcommand};
+use deptree::{dot, fileutil, graphviz, Edge};
 
 #[derive(Debug, Clone, clap::ValueEnum, Default)]
 enum Layout {
@@ -125,117 +126,6 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-mod graphviz {
-    use std::io::{self, Write};
-
-    pub struct Config {
-        pub name: String,
-
-        pub graph: GraphConfig,
-        pub node: NodeConfig,
-        pub edge: EdgeConfig,
-    }
-
-    impl Default for Config {
-        fn default() -> Self {
-            Config {
-                name: "G".to_string(),
-                graph: GraphConfig::default(),
-                node: NodeConfig::default(),
-                edge: EdgeConfig::default(),
-            }
-        }
-    }
-
-    impl Config {
-        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
-            self.graph.write(file)?;
-            self.node.write(file)?;
-            self.edge.write(file)?;
-            Ok(())
-        }
-    }
-
-    pub struct GraphConfig {
-        pub charset: String,
-        pub layout: String,
-    }
-
-    impl Default for GraphConfig {
-        fn default() -> Self {
-            GraphConfig {
-                charset: "UTF-8".to_string(),
-                layout: "dot".to_string(),
-            }
-        }
-    }
-
-    impl GraphConfig {
-        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
-            let indent = "  ";
-            writeln!(file, "{}graph [", indent)?;
-            writeln!(file, "{}{}charset=\"{}\";", indent, indent, self.charset)?;
-            writeln!(file, "{}{}layout={};", indent, indent, self.layout)?;
-            writeln!(file, "{}]", indent)?;
-            Ok(())
-        }
-    }
-
-    pub struct NodeConfig {
-        pub shape: String,
-    }
-
-    impl Default for NodeConfig {
-        fn default() -> Self {
-            NodeConfig {
-                shape: "box".to_string(),
-            }
-        }
-    }
-
-    impl NodeConfig {
-        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
-            let indent = "  ";
-            writeln!(file, "{}node [", indent)?;
-            writeln!(file, "{}{}shape=\"{}\";", indent, indent, self.shape)?;
-            writeln!(file, "{}]", indent)?;
-            Ok(())
-        }
-    }
-
-    pub struct EdgeConfig {
-        pub arrowhead: String,
-    }
-
-    impl Default for EdgeConfig {
-        fn default() -> Self {
-            EdgeConfig {
-                arrowhead: "normal".to_string(),
-            }
-        }
-    }
-
-    impl EdgeConfig {
-        pub fn write(&self, file: &mut dyn Write) -> io::Result<()> {
-            let indent = "  ";
-            writeln!(file, "{}edge [", indent)?;
-            writeln!(
-                file,
-                "{}{}arrowhead=\"{}\";",
-                indent, indent, self.arrowhead
-            )?;
-            writeln!(file, "{}]", indent)?;
-            Ok(())
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Edge {
-    from: String,
-    to: String,
-}
-
 fn parse_line(line: &str, delim: &str) -> Option<Edge> {
     let mut split = line.split(delim);
     let from = split.next()?.to_string();
@@ -250,67 +140,4 @@ fn read_input() -> io::Result<Vec<String>> {
         ret.push(line?);
     }
     Ok(ret)
-}
-
-mod dot {
-    use crate::graphviz::{self};
-    use crate::{fileutil, Edge};
-    use std::collections::HashSet;
-    use std::fs::File;
-    use std::io::{self, Write};
-
-    pub fn write(
-        graph_config: &graphviz::Config,
-        nodes: &HashSet<String>,
-        edges: &Vec<Edge>,
-        file: &mut File,
-    ) -> io::Result<()> {
-        writeln!(file, "digraph {} {{", graph_config.name)?;
-        graph_config.write(file)?;
-
-        for node in nodes {
-            writeln!(file, "    \"{}\";", node)?;
-        }
-        for edge in edges {
-            writeln!(file, "    \"{}\" -> \"{}\";", edge.from, edge.to)?;
-        }
-        writeln!(file, "}}")?;
-        Ok(())
-    }
-
-    pub fn compile(output_file: &str, filename: &std::path::Path) {
-        // dot -Tsvg -o ${args.output} ${filename}
-        let output = std::process::Command::new("dot")
-            .arg(format!("-T{}", fileutil::get_extension(output_file)))
-            .arg("-o")
-            .arg(output_file)
-            .arg(filename.as_os_str())
-            .output()
-            .expect("failed to execute dot");
-        if !output.status.success() {
-            eprintln!("dot failed: {}", String::from_utf8_lossy(&output.stderr));
-            std::process::exit(1);
-        }
-    }
-}
-
-mod fileutil {
-    use std::fs::File;
-    use std::path::PathBuf;
-    use std::{io, mem};
-
-    pub fn get_extension(filename: &str) -> &str {
-        let mut split = filename.split('.');
-        split.next_back().unwrap_or("")
-    }
-
-    pub fn create_temp_file() -> io::Result<(PathBuf, File)> {
-        let dir = tempfile::tempdir()?;
-        let filename = dir.path().join("graph.dot");
-        let file = File::create(&filename)?;
-
-        // file is leaked, but that's ok
-        mem::forget(dir);
-        Ok((filename, file))
-    }
 }
