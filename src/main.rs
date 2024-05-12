@@ -3,7 +3,7 @@ use std::{error, mem};
 
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
-use deptree::{dot, fileutil, graphviz, Graph};
+use deptree::{dot, fileutil, graphviz, Edge, Graph};
 
 #[derive(Debug, Clone, clap::ValueEnum, Default)]
 enum Layout {
@@ -119,7 +119,15 @@ impl GraphCommand {
             if self.reverse {
                 mem::swap(&mut from, &mut to);
             }
-            graph.add_edge(from, to, label);
+
+            let from_id = graph.insert_node(from);
+            let to_id = graph.insert_node(to);
+            let edge = Edge {
+                from: from_id,
+                to: to_id,
+                label: label.map(|s| s.to_string()),
+            };
+            graph.add_edge(edge);
         }
 
         let mut graph_config = graphviz::Config {

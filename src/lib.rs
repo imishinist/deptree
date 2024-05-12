@@ -32,14 +32,12 @@ impl Graph {
         }
     }
 
-    pub fn add_edge(&mut self, from: &str, to: &str, label: Option<&str>) {
-        let from_id = self.node_arena.insert(from.to_string());
-        let to_id = self.node_arena.insert(to.to_string());
-        self.edges.push(Edge {
-            from: from_id,
-            to: to_id,
-            label: label.map(|s| s.to_string()),
-        });
+    pub fn insert_node(&mut self, node: &str) -> NodeId {
+        self.node_arena.insert(node.to_string())
+    }
+
+    pub fn add_edge(&mut self, edge: Edge) {
+        self.edges.push(edge);
     }
 }
 
