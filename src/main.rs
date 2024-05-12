@@ -1,10 +1,9 @@
 use anyhow::Context;
-use std::collections::HashSet;
 use std::io::{self, BufRead};
 use std::{error, mem};
 
 use clap::{Args, Parser, Subcommand};
-use deptree::{dot, fileutil, graphviz, Edge};
+use deptree::{dot, fileutil, graphviz, Graph};
 
 #[derive(Debug, Clone, clap::ValueEnum, Default)]
 enum Layout {
@@ -76,17 +75,14 @@ impl GraphCommand {
     fn run(&self) -> anyhow::Result<()> {
         let inputs = read_input().context("failed to read input")?;
 
-        let mut nodes = HashSet::new();
-        let mut edges = Vec::new();
+        let mut graph = Graph::new();
         for (idx, input) in inputs.iter().enumerate() {
-            let mut edge = parse_line(input, &self.delimiter)
+            let (mut from, mut to) = parse_line(input, &self.delimiter)
                 .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
             if self.reverse {
-                mem::swap(&mut edge.from, &mut edge.to);
+                mem::swap(&mut from, &mut to);
             }
-            nodes.insert(edge.from.clone());
-            nodes.insert(edge.to.clone());
-            edges.push(edge);
+            graph.add_edge(from, to);
         }
 
         let mut graph_config = graphviz::Config {
@@ -102,7 +98,7 @@ impl GraphCommand {
             filename.as_os_str().to_string_lossy()
         );
 
-        dot::write(&graph_config, &nodes, &edges, &mut dot_file)
+        dot::write(&graph_config, &graph, &mut dot_file)
             .context("failed to write temporary dot file")?;
         dot::compile(&self.output, &filename).context("failed to compile temporary dot file")?;
         println!("wrote {}", self.output);
@@ -120,11 +116,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn parse_line(line: &str, delim: &str) -> Option<Edge> {
+fn parse_line<'a>(line: &'a str, delim: &str) -> Option<(&'a str, &'a str)> {
     let mut split = line.split(delim);
-    let from = split.next()?.to_string();
-    let to = split.next()?.to_string();
-    Some(Edge { from, to })
+    Some((split.next()?, split.next()?))
 }
 
 fn read_input() -> io::Result<Vec<String>> {

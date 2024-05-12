@@ -1,26 +1,24 @@
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Write};
 
+use crate::fileutil;
 use crate::graphviz;
-use crate::{fileutil, Edge};
 
 const DEFAULT_OUTPUT_FORMAT: &str = "svg";
 
 pub fn write(
     graph_config: &graphviz::Config,
-    nodes: &HashSet<String>,
-    edges: &Vec<Edge>,
+    graph: &crate::Graph,
     file: &mut File,
 ) -> io::Result<()> {
     writeln!(file, "digraph {} {{", graph_config.name)?;
     graph_config.write(file)?;
 
-    for node in nodes {
-        writeln!(file, "    \"{}\";", node)?;
+    for node in graph.node_arena.nodes.iter().enumerate() {
+        writeln!(file, "    N_{} [label=\"{}\"];", node.0, node.1)?;
     }
-    for edge in edges {
-        writeln!(file, "    \"{}\" -> \"{}\";", edge.from, edge.to)?;
+    for edge in graph.edges.iter() {
+        writeln!(file, "    N_{} -> N_{};", edge.from, edge.to)?;
     }
     writeln!(file, "}}")?;
     Ok(())
