@@ -113,15 +113,15 @@ impl GraphCommand {
 
         let mut graph = Graph::new();
         for (idx, input) in inputs.iter().enumerate() {
-            let (mut from, mut to, label) =
+            let (from, to, label) =
                 parse_line(input, &self.edge_delimiter, &self.label_delimiter)
                     .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
+            let mut from_id = graph.insert_node(from);
+            let mut to_id = graph.insert_node(to);
             if self.reverse {
-                mem::swap(&mut from, &mut to);
+                mem::swap(&mut from_id, &mut to_id);
             }
 
-            let from_id = graph.insert_node(from);
-            let to_id = graph.insert_node(to);
             let edge = Edge {
                 from: from_id,
                 to: to_id,
