@@ -15,13 +15,13 @@ pub fn write(
     graph_config.write(file)?;
 
     for node in graph.node_arena.nodes.iter().enumerate() {
-        writeln!(file, "  N_{} [label=\"{}\"];", node.0, node.1)?;
+        writeln!(file, "  N_{} [label={}];", node.0, node.1)?;
     }
     for edge in graph.edges.iter() {
         if let Some(label) = &edge.label {
             writeln!(
                 file,
-                "  N_{} -> N_{} [label=\"{}\"];",
+                "  N_{} -> N_{} [label={}];",
                 edge.from, edge.to, label
             )?;
         } else {

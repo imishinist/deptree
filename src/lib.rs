@@ -63,11 +63,10 @@ impl Arena {
         })
     }
 
-    /*
+    #[test]
     fn get(&self, id: NodeId) -> Option<&str> {
         self.nodes.get(id).map(|s| s.as_str())
     }
-     */
 }
 
 #[cfg(test)]

@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::{self, BufRead};
 use std::{error, mem};
 
@@ -19,9 +20,9 @@ enum Layout {
     Osage,
 }
 
-impl ToString for Layout {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Layout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             Layout::Dot => "dot",
             Layout::Neato => "neato",
             Layout::Fdp => "fdp",
@@ -31,8 +32,8 @@ impl ToString for Layout {
             Layout::Nop => "nop",
             Layout::Nop2 => "nop2",
             Layout::Osage => "osage",
-        }
-        .to_string()
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -49,9 +50,9 @@ enum Shape {
     Record,
 }
 
-impl ToString for Shape {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Shape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             Shape::Box => "box",
             Shape::Ellipse => "ellipse",
             Shape::Oval => "oval",
@@ -60,8 +61,8 @@ impl ToString for Shape {
             Shape::Triangle => "triangle",
             Shape::Diamond => "diamond",
             Shape::Record => "record",
-        }
-        .to_string()
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -113,9 +114,8 @@ impl GraphCommand {
 
         let mut graph = Graph::new();
         for (idx, input) in inputs.iter().enumerate() {
-            let (from, to, label) =
-                parse_line(input, &self.edge_delimiter, &self.label_delimiter)
-                    .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
+            let (from, to, label) = parse_line(input, &self.edge_delimiter, &self.label_delimiter)
+                .with_context(|| format!("error parsing line {}: \"{}\"", idx + 1, input))?;
             let mut from_id = graph.insert_node(from);
             let mut to_id = graph.insert_node(to);
             if self.reverse {
