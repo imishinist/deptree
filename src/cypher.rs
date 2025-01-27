@@ -33,7 +33,8 @@ pub struct Properties {
 impl Hash for Properties {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_usize(self.inner.len());
-        for (key, value) in &self.inner {
+
+        for (key, value) in self.inner.iter().sorted_by_key(|(&ref f, _)| f) {
             key.hash(state);
             value.hash(state);
         }
@@ -66,7 +67,7 @@ impl Properties {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&String, &Option<Value>)> {
-        self.inner.iter()
+        self.inner.iter().sorted_by_key(|(&ref t, _)| t)
     }
 
     pub fn get(&self, key: &str) -> Option<&Option<Value>> {
@@ -427,6 +428,13 @@ pub struct Table {
 }
 
 impl Table {
+    pub fn iter_fields(&self) -> impl Iterator<Item = &Field> {
+        self.fields
+            .iter()
+            .sorted_by_key(|(&ref t, _)| t)
+            .map(|(_, &ref f)| f)
+    }
+
     fn add_field(&mut self, name: &str, r#type: FieldType, nullable: bool) {
         self.fields
             .entry(name.to_string())
@@ -460,6 +468,7 @@ impl Table {
         let fields = self
             .fields
             .iter()
+            .sorted_by_key(|(&ref t, _)| t)
             .map(|(k, v)| format!("{} {}", k, v.r#type))
             .collect::<Vec<_>>()
             .join(", ");
@@ -468,7 +477,7 @@ impl Table {
             TableType::Node => {
                 format!("({}, PRIMARY KEY ({}))", fields, self.primary_key)
             }
-            TableType::Edge(ref from, ref to) => format!("(FROM {} TO {} {})", from, to, fields),
+            TableType::Edge(ref from, ref to) => format!("(FROM {} TO {}, {})", from, to, fields),
         }
     }
 

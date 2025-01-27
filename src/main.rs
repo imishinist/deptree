@@ -202,14 +202,21 @@ impl KuzuCommand {
         }
 
         let tmp = tempfile::tempdir()?;
+        let tmp = tmp.path();
 
         // write nodes
         for (table_name, nodes) in &nodes {
             let file_name = format!("{}.csv", table_name);
-            let path = tmp.path().join(&file_name);
+            let path = tmp.join(&file_name);
             let mut file = fs::File::create(&path)?;
 
-            log::info!("setup {}.csv", file_name);
+            log::info!("setup {}", file_name);
+
+            let table = schema.get(&table_name).unwrap();
+            let header = table.iter_fields().map(|f| f.name.clone()).join(",");
+            log::debug!("{}", header);
+            writeln!(file, "{}", header)?;
+
             for node in nodes {
                 // TODO: null value
                 let values = node
@@ -220,7 +227,7 @@ impl KuzuCommand {
                 writeln!(file, "{}", values)?;
             }
 
-            let query = format!("COPY {} FROM '{}'", table_name, path.display());
+            let query = format!("COPY {} FROM '{}' (HEADER=TRUE)", table_name, path.display());
             log::info!("{}", query);
             conn.query(&query)?;
         }
@@ -228,10 +235,15 @@ impl KuzuCommand {
         // write edges
         for (table_name, edges) in &edges {
             let file_name = format!("{}.csv", table_name);
-            let path = tmp.path().join(&file_name);
+            let path = tmp.join(&file_name);
 
             let mut file = fs::File::create(&path)?;
-            log::info!("setup {}.csv", file_name);
+            log::info!("setup {}", file_name);
+
+            let table = schema.get(&table_name).unwrap();
+            let header = table.iter_fields().map(|f| f.name.clone()).join(",");
+
+            writeln!(file, "id,id,{}", header)?;
             for edge in edges {
                 write!(file, "{},{}", edge.from.1, edge.to.1)?;
                 match edge.properties {
@@ -248,7 +260,7 @@ impl KuzuCommand {
                     None => writeln!(file, "")?,
                 }
             }
-            let query = format!("COPY {} FROM '{}'", table_name, path.display());
+            let query = format!("COPY {} FROM '{}' (HEADER=TRUE)", table_name, path.display());
             log::info!("{}", query);
             conn.query(&query)?;
         }
