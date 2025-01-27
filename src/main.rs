@@ -1,10 +1,14 @@
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::io::{self, BufRead};
-use std::{error, mem};
+use std::io::{self, BufRead, Read, Write};
+use std::path::Path;
+use std::{error, fs, mem};
 
 use anyhow::Context;
 use clap::{Args, Parser, Subcommand};
-use deptree::{dot, fileutil, graphviz, Edge, Graph};
+use deptree::{cypher, dot, fileutil, graphviz, Edge, Graph};
+use itertools::Itertools;
+use kuzu::{Connection, Database, SystemConfig};
 
 #[derive(Debug, Clone, clap::ValueEnum, Default)]
 enum Layout {
@@ -77,6 +81,7 @@ struct DepTreeCommands {
 #[derive(Subcommand)]
 enum Commands {
     Graph(GraphCommand),
+    Kuzu(KuzuCommand),
 }
 
 #[derive(Args, Debug)]
@@ -152,12 +157,113 @@ impl GraphCommand {
     }
 }
 
+#[derive(Args, Debug)]
+struct KuzuCommand {
+    output: String,
+}
+
+impl KuzuCommand {
+    fn run(&self) -> anyhow::Result<()> {
+        let output = Path::new(&self.output);
+        if output.exists() {
+            return Err(anyhow::anyhow!("{} already exists", self.output));
+        }
+
+        fs::create_dir_all(output)?;
+        let db = Database::new(output, SystemConfig::default())?;
+        let conn = Connection::new(&db)?;
+
+        let mut input = String::new();
+        io::stdin().read_to_string(&mut input)?;
+
+        let triples = cypher::parse(&input)?;
+        let schema = cypher::extract_schema(&triples);
+        for table in schema.iter_table() {
+            let stmt = table.generate_create_statement();
+            log::info!("{}", stmt);
+            conn.query(&stmt)?;
+        }
+
+        let mut nodes = HashMap::new();
+        let mut edges = HashMap::new();
+        for triple in triples {
+            nodes
+                .entry(triple.left.name.clone())
+                .or_insert_with(HashSet::new)
+                .insert(triple.left);
+            nodes
+                .entry(triple.right.name.clone())
+                .or_insert_with(HashSet::new)
+                .insert(triple.right);
+            edges
+                .entry(triple.edge.name.clone())
+                .or_insert_with(HashSet::new)
+                .insert(triple.edge);
+        }
+
+        let tmp = tempfile::tempdir()?;
+
+        // write nodes
+        for (table_name, nodes) in &nodes {
+            let file_name = format!("{}.csv", table_name);
+            let path = tmp.path().join(&file_name);
+            let mut file = fs::File::create(&path)?;
+
+            log::info!("setup {}.csv", file_name);
+            for node in nodes {
+                // TODO: null value
+                let values = node
+                    .iter()
+                    .map(|(_, v)| v.as_ref().map(|v| v.to_string()).unwrap_or("".to_string()))
+                    .join(",");
+                log::debug!("{}", values);
+                writeln!(file, "{}", values)?;
+            }
+
+            let query = format!("COPY {} FROM '{}'", table_name, path.display());
+            log::info!("{}", query);
+            conn.query(&query)?;
+        }
+
+        // write edges
+        for (table_name, edges) in &edges {
+            let file_name = format!("{}.csv", table_name);
+            let path = tmp.path().join(&file_name);
+
+            let mut file = fs::File::create(&path)?;
+            log::info!("setup {}.csv", file_name);
+            for edge in edges {
+                write!(file, "{},{}", edge.from.1, edge.to.1)?;
+                match edge.properties {
+                    Some(ref properties) => {
+                        // TODO: null value
+                        let values = properties
+                            .iter()
+                            .map(|(_, v)| {
+                                v.as_ref().map(|v| v.to_string()).unwrap_or("".to_string())
+                            })
+                            .join(",");
+                        writeln!(file, ",{}", values)?;
+                    }
+                    None => writeln!(file, "")?,
+                }
+            }
+            let query = format!("COPY {} FROM '{}'", table_name, path.display());
+            log::info!("{}", query);
+            conn.query(&query)?;
+        }
+
+        Ok(())
+    }
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     env_logger::init();
 
     let deptree = DepTreeCommands::parse();
     match deptree.commands {
         Commands::Graph(graph) => graph.run()?,
+        Commands::Kuzu(kuzu) => kuzu.run()?,
     }
     Ok(())
 }

@@ -1,0 +1,185 @@
+CypherLike = {
+  SP? ~ PatternList ~ SP? ~ EOI
+}
+
+SP = { whitespace+ }
+whitespace = { WHITE_SPACE }
+
+PatternList = { Pattern ~ SP? ~ (Pattern ~ SP?)* ~ SP? }
+
+Pattern = { PatternElement ~ SP? ~ ";" }
+
+LEFT_ARROW = @{ "<-" }
+RIGHT_ARROW = @{ "->" }
+
+PatternElement = {
+  (NodePattern ~ SP? ~ LEFT_ARROW ~SP? ~ EdgePattern ~ SP? ~ "-" ~ SP? ~ NodePattern)
+  | (NodePattern ~ SP? ~ "-" ~SP? ~ EdgePattern ~ SP? ~ RIGHT_ARROW ~ SP? ~ NodePattern)
+}
+
+EdgePattern = {
+  "[" ~ SP? ~ EdgeLabel ~ SP? ~ (Properties ~ SP?)? ~ "]"
+}
+
+EdgeLabel = {
+  ":" ~ SP? ~ LabelName
+}
+
+NodePattern = {
+  "(" ~ SP? ~ NodeLabel ~ SP? ~ Properties ~ SP? ~ ")"
+}
+
+NodeLabel = {
+  ":" ~ SP? ~ LabelName
+}
+
+LabelName = { SchemaName }
+
+SchemaName = { SymbolicName }
+
+SymbolicName = {
+    UnescapedSymbolicName
+    | EscapedSymbolicName
+    | HexLetter
+}
+
+UnescapedSymbolicName = @{
+    IdentifierStart ~ IdentifierPart*
+}
+
+IdentifierStart = {
+    ID_Start | Pc
+}
+ID_Start = { ID_START }
+Pc = { CONNECTOR_PUNCTUATION }
+
+
+IdentifierPart = {
+    ID_Continue | Sc
+}
+ID_Continue = { ID_CONTINUE }
+Sc = { CURRENCY_SYMBOL }
+
+EscapedSymbolicName = {
+    ("`" ~ (!"`" ~ ANY)* ~ "`")+
+}
+
+HexLetter = {
+    ^"A"
+    | ^"B"
+    | ^"C"
+    | ^"D"
+    | ^"E"
+    | ^"F"
+}
+
+Properties = {
+  MapLiteral
+}
+
+MapLiteral = {
+    "{" ~ SP? ~ (PropertyKeyName ~ SP? ~ ":" ~ SP? ~ Literal ~ SP? ~ ("," ~ SP? ~ PropertyKeyName ~ SP? ~ ":" ~ SP? ~ Literal ~ SP?)*)? ~ "}"
+}
+
+PropertyKeyName = {
+    SchemaName
+}
+
+Literal = {
+  BooleanLiteral
+  | NumberLiteral
+  | StringLiteral
+  | MapLiteral
+  | NULL
+}
+
+NULL = @{ ^"NULL" }
+
+BooleanLiteral = {
+  TRUE | FALSE
+}
+
+TRUE = @{ ^"TRUE" }
+FALSE = @{ ^"FALSE" }
+
+NumberLiteral = {
+    DoubleLiteral
+    | IntegerLiteral
+}
+
+DoubleLiteral = {
+    ExponentDecimalReal
+    | RegularDecimalReal
+}
+
+ExponentDecimalReal = {
+    (
+        Digit+
+        | (Digit+ ~ "." ~ Digit+)
+        | ("." ~ Digit+)
+    ) ~ ^"E" ~ "-"? ~ Digit+
+}
+
+Digit = {
+  ZeroDigit
+  | NonZeroDigit
+}
+
+ZeroDigit = { "0" }
+NonZeroDigit = {
+    '1'..'9'
+}
+
+
+RegularDecimalReal = {
+    Digit* ~ "." ~ Digit+
+}
+
+IntegerLiteral = { DecimalInteger }
+
+DecimalInteger = {
+    ZeroDigit
+    | (NonZeroDigit ~ Digit*)
+}
+
+
+StringLiteral = {
+    ("\"" ~ StringDoubleText ~ "\"")
+    | ("'" ~ StringSingleText ~ "'")
+}
+
+StringDoubleText = @{
+    StringDoubleTextChar*
+}
+
+StringDoubleTextChar = {
+    (!("\"" | "\\") ~ ANY) | EscapedChar
+}
+
+StringSingleText = @{
+    StringSingleTextChar*
+}
+
+StringSingleTextChar = {
+    (!("'" | "\\") ~ ANY) | EscapedChar
+}
+
+EscapedChar = {
+	"\\" ~ (
+    	"\\"
+        | "'"
+        | "\""
+        | ^"B"
+        | ^"F"
+        | ^"N"
+        | ^"R"
+        | ^"T"
+        | (^"U" ~ HexDigit{4})
+        | (^"U" ~ HexDigit{8})
+    )
+}
+
+HexDigit = {
+    Digit
+    | HexLetter
+}

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+pub mod cypher;
 pub mod dot;
 pub mod fileutil;
 pub mod graphviz;
