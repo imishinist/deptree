@@ -11,7 +11,6 @@ clap = { version = "4.4.8", features = ["derive"] }
 env_logger = "0.10.1"
 kuzu = "0.7.1"
 log = "0.4.20"
-open-cypher = "0.1.1"
 tempfile = "3.8.1"
 pest = "2.7.15"
 pest_derive = "2.7.15"

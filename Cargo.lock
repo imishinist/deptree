@@ -266,7 +266,6 @@ dependencies = [
  "itertools",
  "kuzu",
  "log",
- "open-cypher",
  "pest",
  "pest_derive",
  "tempfile",
@@ -458,16 +457,6 @@ name = "once_cell"
 version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
-
-[[package]]
-name = "open-cypher"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f81aa16385be2ada6d0446c2c7158200c417e4d776660cd260849b14f4ca4a3"
-dependencies = [
- "pest",
- "pest_derive",
-]
 
 [[package]]
 name = "pest"
